@@ -52,6 +52,32 @@ class PlotlyPlot():
         
         
     #==========================================================================
+    def add_box_data(self, x=None, y=None, **kwargs): 
+        
+        trace = go.Box(
+                    x=x, 
+                    y=y,
+                    name = self._get_plot_name('bar', **kwargs),
+                    marker = dict(
+#                        color = kwargs.get('marker_color', 'rgb(214, 12, 140)')
+                        color = kwargs.get('marker_color', None)
+                    ), 
+                    boxpoints = kwargs.get('boxpoints', None), 
+#                    jitter=0.3,
+#                    pointpos=-1.8
+                )
+        self.data.append(trace) 
+        
+#        data = [
+#    go.Box(
+#        y=[0, 1, 1, 2, 3, 5, 8, 13, 21],
+#        boxpoints='all',
+#        jitter=0.3,
+#        pointpos=-1.8
+#    )
+#]
+        
+    #==========================================================================
     def get_position(self, pos, space_percent=5): 
         """
         pos is a four digit number or str that shows where to place the chart. 
