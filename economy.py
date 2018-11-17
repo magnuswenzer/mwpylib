@@ -98,12 +98,13 @@ class Nordea():
                 continue
             if a in self.df['Kategori'].values: 
                 cat_list.append(a)
-            elif a[0]=='-'and a[1:] in self.df['Kategori'].values: 
-                not_cat_list.append(a)
+            elif a[0]=='-'and a[1:] in self.df['Kategori'].values:
+                # print('NOT IN KATEGORI')
+                not_cat_list.append(a[1:])
             elif a in self.df['Underkategori'].values: 
                 sub_cat_list.append(a)
             elif a[0]=='-'and a[1:] in self.df['Underkategori'].values: 
-                not_sub_cat_list.append(a)
+                not_sub_cat_list.append(a[1:])
         
         kwargs['kategori'] = cat_list + kwargs.get('kategori', [])
         kwargs['ej_kategori'] = not_cat_list + kwargs.get('ej_kategori', [])
@@ -120,9 +121,12 @@ class Nordea():
 #        print(len(np.where(boolean)[0]))
         boolean = boolean & self._get_month_boolean(month_list)
 #        print(len(np.where(boolean)[0]))
+#         print("kwargs['ej_kategori']", kwargs['ej_kategori'])
         boolean = boolean & self._get_exclude_boolean(**{'Kategori': kwargs.get('ej_kategori')})
+        # print(len(np.where(~boolean)[0]), np.where(~boolean))
 #        print(len(np.where(boolean)[0]))
         boolean = boolean & self._get_include_boolean(**{'Kategori': kwargs.get('kategori')})
+        # print(len(np.where(~boolean)[0]), np.where(~boolean))
 #        print(len(np.where(boolean)[0])) 
         boolean = boolean & self._get_exclude_boolean(**{'Underkategori': kwargs.get('ej_underkategori')})
         boolean = boolean & self._get_include_boolean(**{'Underkategori': kwargs.get('underkategori')})
@@ -218,7 +222,8 @@ class Nordea():
                 self.df = temp_df
             else:
                 self.df = self.df.append(temp_df) 
-                
+
+        self.df['Kategori'] = ''
         self.df.fillna('', inplace=True) 
         
         # Ta bort dubletter
@@ -230,7 +235,7 @@ class Nordea():
         self.df['year'] = self.df['Datum'].dt.year 
         self.df['year_month'] = self.df['year'].astype(str) + '_' + self.df['month'].astype(str)
         
-        # Konvert to float 
+        # Convert to float
         float_columns = ['Belopp']
         for col in float_columns:
             self.df[col] = self.df[col].apply(self._convert_float)
@@ -248,6 +253,8 @@ class Nordea():
                     self.df.loc[self.df['Transaktion'].str.contains(item), 'Underkategori'] = item 
                     
         self.df.sort_values('Datum', inplace=True)
+        self.df.reset_index(inplace=True)
+        # print('resetting')
             
     
     #==========================================================================
@@ -270,12 +277,28 @@ class Nordea():
             print('All transaktioner är kategoriserade!')
             
         return no_kategory_list
-            
-    
 
-        
-    
-    #==========================================================================
+    def plot_account_cumsum(self, *args, **kwargs):
+        data = self._get_df_from_args_and_kwargs(*args, **kwargs)
+        df_tot = data[['Datum', 'Belopp']]
+        df_in = data.loc[data['Belopp'] < 0, ['Datum', 'Belopp']]
+        df_out = data.loc[data['Belopp'] > 0, ['Datum', 'Belopp']]
+        p = PlotlyPlot(title='Utveckling konto (cumsum)',
+                       xaxis_title='Tidpunkt',
+                       yaxis_title='kr på kontot')
+
+        p.add_scatter_data(df_tot['Datum'], df_tot['Belopp'].cumsum()*-1, name='Totalt')
+        p.add_scatter_data(df_in['Datum'], df_in['Belopp'].cumsum()*-1, name='Insättningar')
+        p.add_scatter_data(df_out['Datum'], df_out['Belopp'].cumsum(), name='Utgifter')
+
+        if kwargs.get('save_to_file'):
+            p.plot_to_file(kwargs.get('save_to_file'))
+        if kwargs.get('plot_in_notebook'):
+            p.plot_in_notebook()
+
+        return data
+
+        #==========================================================================
     def plot_post(self, *args, **kwargs): 
         """
         Plots one or several post in args. Post can be category or subcategory. 
@@ -480,7 +503,7 @@ class Nordea():
     def _get_time_data_for_category(self, *args, **kwargs): 
         """
         Returns a time series for a category or subcategory. 
-        If several posts the same day. Sthe sum is given. 
+        If several posts the same day. The sum is given.
         """
         
         df = self._get_df_from_args_and_kwargs(*args, **kwargs)
